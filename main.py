@@ -1,3 +1,10 @@
+import numpy as np
+import pandas as pd
+import yfinance as yf
+import re
+from datetime import datetime
+import statsmodels.api as smf
+
 class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
         ticker = ticker.upper()
