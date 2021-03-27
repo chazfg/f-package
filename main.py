@@ -1,11 +1,3 @@
-import numpy as np
-import pandas as pd
-import yfinance as yf
-import re
-from datetime import datetime
-import statsmodels.api as smf
-
-
 class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
         ticker = ticker.upper()
@@ -36,10 +28,11 @@ class Stock():
         return np.mean(self.price_paths[:,-1])
     
     def mktbeta(self, mktport='^GSPC', stock_data='Adj Close'):
-        X = self.current_data[stock_data]
-        X = smf.add_constant(X)
+        Y = self.log_rets
         mkt = yf.download( mktport, self.start_date, self.end_date )
-        Y = mkt[stock_data]
+        mktlogrets = np.log(mkt[stock_data]/mkt[stock_data].shift(1))[1:]
+        X = mktlogrets
+        X = smf.add_constant(X)
         self.regression_data = smf.OLS(Y, X).fit()
         return self.regression_data.params
     
