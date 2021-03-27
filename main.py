@@ -3,9 +3,10 @@ import pandas as pd
 import yfinance as yf
 import re
 from datetime import datetime
+import statsmodels.api as smf
 
 
-class GBMguy:
+class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
         ticker = ticker.upper()
         self.ticker = yf.Ticker(ticker)
@@ -34,6 +35,14 @@ class GBMguy:
         self.price_paths = start_price*np.exp(paths)
         return np.mean(self.price_paths[:,-1])
     
+    def mktbeta(self, mktport='^GSPC', stock_data='Adj Close'):
+        X = self.current_data[stock_data]
+        X = smf.add_constant(X)
+        mkt = yf.download( mktport, self.start_date, self.end_date )
+        Y = mkt[stock_data]
+        self.regression_data = smf.OLS(Y, X).fit()
+        return self.regression_data.params
+    
     def option_price(self, strike, expiry, start_price=None, r_f=0.06, contract='call'):
         if start_price==None:
             start_price = self.current_data['Adj Close'].iloc[0]
@@ -55,12 +64,28 @@ class GBMguy:
             count = prices < strike
             return (np.mean(strike - prices[count]))*np.exp(r_f*(TTM/252))
         
-        
+class two_stocks():
+    def __init__(self, tickers, start_date, end_date):
+        self.tickers = tickers
+        self.start_date = start_date
+        self.end_date = end_date
+        self.data = pd.DataFrame()
+        dl = ""
+        frames = []
+        for stock in tickers:
+            setattr(self, stock, yf.Ticker(stock))
+            frames.append(yf.download(stock, start_date, end_date))
+        self.data = pd.concat(frames, keys=tickers)   
     
 class several_stocks():
     def __init__(self, tickers, start_date, end_date):
         self.tickers = tickers
         self.start_date = start_date
         self.end_date = end_date
+        self.data = pd.DataFrame()
+        dl = ""
+        frames = []
         for stock in tickers:
             setattr(self, stock, yf.Ticker(stock))
+            frames.append(yf.download(stock, start_date, end_date))
+        self.data = pd.concat(frames, keys=tickers)
