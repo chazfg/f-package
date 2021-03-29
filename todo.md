@@ -9,6 +9,7 @@
 ## Stock class:
 * create binomial tree prediction?
 * Financial statement analysis
+* Generate payoffs based on position, uses simulation methods 
 
 ### __init__
 * Handle different frequencies of trade data
