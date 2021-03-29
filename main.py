@@ -55,8 +55,8 @@ class Stock():
     def mktbeta(self, mktport='^GSPC', stock_data='Adj Close'):
         Y = self.log_rets
         mkt = yf.download( mktport, self.start_date, self.end_date )
-        mktlogrets = np.log(mkt[stock_data]/mkt[stock_data].shift(1))[1:]
-        X = mktlogrets
+        self.mktlogrets = np.log(mkt[stock_data]/mkt[stock_data].shift(1))[1:]
+        X = self.mktlogrets
         X = smf.add_constant(X)
         self.regression_data = smf.OLS(Y, X).fit()
         return self.regression_data.params
