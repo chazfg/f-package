@@ -194,4 +194,4 @@ class cashflow_tl():
                 self.cashflows[list_of_flows[i,0]] = list_of_flows[i,1:].tolist()
         
     def to_dataframe(self):
-        pd.DataFrame.from_dict(self.cashflows, orient='index').fillna(0)    
+        self.dfflow = pd.DataFrame.from_dict(self.cashflows, orient='index').fillna(0)    
