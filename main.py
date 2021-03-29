@@ -2,9 +2,13 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 import re
-from datetime import datetime
+import datetime
 import statsmodels.api as smf
 from itertools import accumulate
+import matplotlib.pyplot as plt
+from arch import arch_model
+from numba import jit, vectorize, float64
+import timeit
 
 class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
@@ -167,3 +171,27 @@ class several_stocks():
             self.w_alloc = (1-psi)*self.w_naught_port + psi*self.w_one_port
         return inv_cov @ e / a
     
+    
+class cashflow_tl():
+    def __init__(self, start_date, date_format='yyyy-mm-dd'):
+        self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        self.date_format = date_format
+        self.cashflows = {self.start_date:[0]}
+        
+        
+    def addBond(self, coupon_rate, face_val, ytm, comp_per_annum, ttm, **kwargs):
+        inter = datetime.timedelta(days=(365/comp_per_annum))
+        coupon = (coupon_rate*face_val)/comp_per_annum
+        bond = np.array([ [self.start_date + inter*(i+1), coupon] for i in range(ttm*comp_per_annum)])
+        bond[-1, -1] += face_val
+        self.addcashflows(bond)
+        
+    def addcashflows(self, list_of_flows):
+        for i in range(len(list_of_flows[:,0])):
+            if list_of_flows[i,0] in self.cashflows:
+                self.cashflows[list_of_flows[i,0]].extend(list_of_flows[i,1:])
+            else:
+                self.cashflows[list_of_flows[i,0]] = list_of_flows[i,1:].tolist()
+        
+    def to_dataframe(self):
+        pd.DataFrame.from_dict(self.cashflows, orient='index').fillna(0)    
