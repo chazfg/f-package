@@ -8,7 +8,6 @@ from itertools import accumulate
 import matplotlib.pyplot as plt
 from arch import arch_model
 from numba import jit, vectorize, float64
-import timeit
 
 class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
