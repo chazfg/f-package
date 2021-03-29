@@ -3,10 +3,12 @@
 ## Overall:
 * Better documentaion, both within the read me and within the main doc as well. Make code more legible and more generalized.
 * Handle nearly any user entered date format, for ease of use
+* Make more classes to do more things (want to add one for a lot of financial calcluators)
 * Long term, I'd also like to implement machine learning algorithms for stock prediction
 
 ## Stock class:
 * create binomial tree prediction?
+* Financial statement analysis
 
 ### __init__
 * Handle different frequencies of trade data
@@ -30,6 +32,13 @@
 * this is gone next commit I think, I had something specific in mind but I can no longer remember
 
 ## several_stocks
+* Financial statement analysis
+* Once the above is added, Fama French factor sorts, panelOLS 
+* Add different way to calculate covariance matrix (thinking about systemic etc)
+* Compare created portfolio historical returns to benchmark of choosing
+* Compare created portfolio projected returns to projected returns of benchmark
+* Allow user to pass in weights with ticker data to create their own portfolio (this may be created as another class)
+* Function to use optimization to find best portfolio weights
 
 ### __init__
 * Be able to use different frequencies
