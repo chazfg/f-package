@@ -11,6 +11,25 @@ from numba import jit, vectorize, float64
 
 class Stock():
     def __init__(self, ticker, start_date, end_date, log_rets_dat='Adj Close'):
+        '''
+
+        Parameters
+        ----------
+        ticker : String
+            String of ticker of stock you want to download, has to be on 
+            Yahoo finance
+        start_date : String
+              Format 'YYYY-MM-DD'
+        end_date : String
+            Format 'YYYY-MM-DD'
+        log_rets_dat : String, optional
+            Data used to find log rets. The default is 'Adj Close'.
+
+        Returns
+        -------
+        None.
+
+        '''
         ticker = ticker.upper()
         self.ticker = yf.Ticker(ticker)
         self.price_paths = None
@@ -25,6 +44,30 @@ class Stock():
         
    
     def fastGBMpredict(self, forecast_length, num_paths, mu=None, sig2=None, **kwargs):
+        '''
+        Uses Geometric Brownian Motion to Monto Carlo simulate and generate
+        stock data
+
+        Parameters
+        ----------
+        forecast_length : Int
+            Number of trading days to calculate in the future.
+        num_paths : Int
+            Number of price paths you want to make
+        mu : Float, optional
+            Number to use as drift. The default is the average of the data.
+        sig2 : Float, optional
+            Method or value used for volatility. The default is volatility of 
+            downloaded data.
+        **kwargs : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        Float
+            Average of final day of every price path.
+
+        '''
         start_price = np.asarray(self.current_data['Adj Close'])[-1]
         if mu ==None:
             mu=self.data_mean
@@ -51,7 +94,25 @@ class Stock():
         self.price_paths = start_price*np.exp(paths)
         return np.mean(self.price_paths[:, -1])
     
+    
     def mktbeta(self, mktport='^GSPC', stock_data='Adj Close'):
+        '''
+        Finds correlation with a market portfolio
+
+        Parameters
+        ----------
+        mktport : String, optional
+            Ticker of stock/index you want to use as 
+            the market. The default is '^GSPC'.
+        stock_data : TYPE, optional
+            DESCRIPTION. The default is 'Adj Close'.
+
+        Returns
+        -------
+        Array-like
+            Beta and intercept from regression.
+
+        '''
         Y = self.log_rets
         mkt = yf.download( mktport, self.start_date, self.end_date )
         self.mktlogrets = np.log(mkt[stock_data]/mkt[stock_data].shift(1))[1:]
@@ -82,17 +143,6 @@ class Stock():
             count = prices < strike
             return (np.mean(strike - prices[count]))*np.exp(r_f*(TTM/252))
         
-class two_stocks():
-    def __init__(self, tickers, start_date, end_date):
-        self.tickers = tickers
-        self.start_date = start_date
-        self.end_date = end_date
-        self.data = pd.DataFrame()
-        frames = []
-        for stock in tickers:
-            setattr(self, stock, yf.Ticker(stock))
-            frames.append(yf.download(stock, start_date, end_date))
-        self.data = pd.concat(frames, keys=tickers)   
     
 class several_stocks():
     def __init__(self, tickers, start_date, end_date):
@@ -193,4 +243,26 @@ class cashflow_tl():
                 self.cashflows[list_of_flows[i,0]] = list_of_flows[i,1:].tolist()
         
     def to_dataframe(self):
-        self.dfflow = pd.DataFrame.from_dict(self.cashflows, orient='index').fillna(0)    
+        self.dfflow = pd.DataFrame.from_dict(self.cashflows, orient='index').fillna(0)
+        
+class finCalcs:
+    def bond_price(face_val, compounding_freq, ytm, TTM, coupon_rate):
+        price = 0
+        ytm = ytm/compounding_freq
+        coupon = (coupon_rate*face_val)/compounding_freq
+        n = compounding_freq*TTM
+        oneover = 1/(1+ytm)**n
+        price = coupon*((1-oneover)/ytm) + face_val*oneover
+        return price
+    
+    def duration(face_val, compounding_freq, ytm, TTM, coupon_rate, type_of='Modified-Macaulay'):
+        price = finCalcs.bond_price(face_val, compounding_freq, ytm, TTM, coupon_rate)
+        ytm = ytm/compounding_freq
+        coupon = (coupon_rate*face_val)/compounding_freq
+        n = compounding_freq*TTM
+        oneover = 1/(1+ytm)**n
+        dpdi = -(coupon/ytm**2)*(1 - oneover) + (coupon*n/ytm)*(1/(1+ytm)**(n+1)) - face_val*n/(1+ytm)**(n+1)
+        if type_of == 'Modified-Macaulay':
+            return dpdi/price
+        elif type_of == 'Macaulay':
+            return -(1 + ytm)*dpdi/price
