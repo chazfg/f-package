@@ -86,6 +86,26 @@ class Stock():
             paths = func.accumulate(np.zeros((num_paths, forecast_length)), axis=1)
             self.price_paths = start_price*np.exp(paths)
             return np.mean(self.price_paths[:, -1])
+        elif sig2=='GARCH':
+            am = arch_model(self.log_rets*100, vol = 'Garch', p = 1, o = 0, dist = 'Normal' )
+            res = am.fit(disp='off')
+            omega, alpha, beta = res.params[1:]
+            omega, alpha, beta = omega/10000, alpha/100, beta/100
+            drift = mu
+            vol = np.zeros((num_paths, forecast_length))
+            rets = np.zeros((num_paths, forecast_length))
+            
+            def g(rets, vol, forecast_length, num_paths):
+                for j in range(num_paths):
+                    for i in range(1, forecast_length):
+                        vol[j, i] = np.sqrt(omega + alpha*rets[j, i-1]**2 + beta*vol[j, i-1]**2)
+                        rets[j, i] = drift - 0.5*vol[j, i]**2 + vol[j, i]*np.random.normal()
+                return vol, rets
+            
+            vol, rets = g(rets, vol, forecast_length, num_paths)
+            self.price_paths = start_price*np.exp(np.cumsum(rets, axis=1))
+            return np.mean(self.price_paths[:, -1])
+            
             
         nums = np.random.normal(size=(num_paths, forecast_length-1))
         paths = np.zeros((num_paths, forecast_length))
@@ -163,17 +183,16 @@ class several_stocks():
         
 
     
-    def fastGBMpredict(self, forecast_length, num_paths, mu=None, sig2=None, **kwargs):
-        start_price = np.asarray(self.current_data['Adj Close'])[-1]
+    def fastGBMpredict(self, forecast_length, num_paths, start_price, mu=None, sig2=None, i=0):
         if mu ==None:
-            mu=self.data_mean
+            mu=self.data_array
         elif mu=='mktdriftmean':
             beta = self.mktbeta()[-1]
             mu = beta*np.mean(self.mktlogrets)
         if sig2==None:
-            sig2=self.data_var
+            sig2=self.var_array
         elif sig2=='ARCH':
-            am = arch_model(self.log_rets*100, vol = 'Arch', p = 1, o = 0, dist = 'Normal' )
+            am = arch_model(self.ln_rets[i]*100, vol = 'Arch', p = 1, o = 0, dist = 'Normal' )
             result = am.fit( update_freq = 5, disp='off' )
             _, gamma, alpha = result.params
             @vectorize([float64(float64, float64)])
@@ -181,6 +200,25 @@ class several_stocks():
                 return x + mu - 0.5*(gamma + alpha*x**2)*1e-5 + 1e-2*np.sqrt(gamma + alpha*x**2)*np.random.normal()
             paths = func.accumulate(np.zeros((num_paths, forecast_length)), axis=1)
             self.price_paths = start_price*np.exp(paths)
+            return np.mean(self.price_paths[:, -1])
+        elif sig2=='GARCH':
+            am = arch_model(self.ln_rets[i]*100, vol = 'Garch', p = 1, o = 0, dist = 'Normal' )
+            res = am.fit(disp='off')
+            omega, alpha, beta = res.params[1:]
+            omega, alpha, beta = omega/10000, alpha/100, beta/100
+            drift = mu
+            vol = np.zeros((num_paths, forecast_length))
+            rets = np.zeros((num_paths, forecast_length))
+            
+            def g(rets, vol, forecast_length, num_paths):
+                for j in range(num_paths):
+                    for i in range(1, forecast_length):
+                        vol[j, i] = np.sqrt(omega + alpha*rets[j, i-1]**2 + beta*vol[j, i-1]**2)
+                        rets[j, i] = drift - 0.5*vol[j, i]**2 + vol[j, i]*np.random.normal()
+                return vol, rets
+            
+            vol, rets = g(rets, vol, forecast_length, num_paths)
+            self.price_paths = start_price*np.exp(np.cumsum(rets, axis=1))
             return np.mean(self.price_paths[:, -1])
             
         nums = np.random.normal(size=(num_paths, forecast_length-1))
@@ -199,11 +237,18 @@ class several_stocks():
             mu = self.mean_array
         if sig2==None:
             sig2 = self.var_array
+        elif sig2=='GARCH':
+            sig2 = ['GARCH' for i in range(len(self.tickers))]
+        elif sig2=='ARCH':
+            sig2 = ['ARCH' for i in range(len(self.tickers))]
         if start_price == None:
             start_price = np.array([self.frames[i]['Adj Close'][-1] for i in range(len(self.tickers))])
-        return np.array([self.fastGBMpredict(forecast_length, num_paths, sig2[i], mu[i], start_price[i]) for i in range(len(self.tickers))])
+        rets = []
+        for i in range(len(self.tickers)):
+            rets.append(self.fastGBMpredict(20, 1000, start_price[i], mu[i], sig2[i], i))
+        return np.array(rets)
         
-    def min_var_port(self, Target=None):
+    def min_var_port(self, exp_rets = None, Target=None):
         e = np.ones(len(self.tickers))
         r = self.exp_rets()
         cov = np.cov(self.ln_rets)
